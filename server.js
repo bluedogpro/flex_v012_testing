@@ -94,7 +94,7 @@ app.get('/api/game/list', (req, res) => {
 
 
 // Download ALL saves
-app.get('/api/game/allsaves', (req, res) => {
+app.get('http://localhost:10000/api/game/allsaves', (req, res) => {
   try {
     const files = fs.readdirSync(SAVE_DIR).filter(f => f.endsWith('.json'));
     const allData = {};
@@ -110,7 +110,7 @@ app.get('/api/game/allsaves', (req, res) => {
 });
 
 // Upload ALL saves
-app.post('/api/game/allsaves', (req, res) => {
+app.post('http://localhost:10000/api/game/allsaves', (req, res) => {
   const allData = req.body;
   if (!allData || typeof allData !== 'object') {
     return res.status(400).json({ error: 'Invalid data format' });
