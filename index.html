@@ -1,0 +1,1884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flex — Shop & Flex Game (Inventory at Bottom)</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee:wght@400&family=Russo+One&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ui-blue:#59a7ff;
+  --ui-blue-dark:#2973e3;
+  --ink:#0a0f1a;
+  --panel:#3a3a42;
+  --panel-2:#2b2b31;
+  --slot:#9aa0a6;
+  --success:#2ecc71;
+  --danger:#e74c3c;
+  --gold:#ffb200;
+  --shadow:0 10px 30px rgba(0,0,0,.35);
+  --radius:28px;
+  --c-common:#6dff79;
+  --c-rare:#4cc4ff;
+  --c-epic:#b66bff;
+  --c-legendary:#ffd84a;
+  --c-legacy:#ffffff;
+  --c-mythic:#ffd700;
+}
+
+/* page / backdrop */
+html,body{ height:100%; margin:0; background: linear-gradient(to bottom, #89CFF0 0%, #90EE90 100%); overscroll-behavior:none; color:#fff; font-family:"Rajdhani", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; user-select:none; }
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background-image: linear-gradient(0deg, rgba(0,0,0,.06), rgba(255,255,255,.06)), repeating-linear-gradient(45deg, #1aa69e 0 12px, #1ca3d8 12px 24px, #1f7fb8 24px 36px), repeating-linear-gradient(-45deg, #1dc79d 0 12px, #1ea9d0 12px 24px, #2b6ab8 24px 36px);
+  filter:contrast(115%) saturate(120%);
+  image-rendering:pixelated;
+  background-size: 100% 100%, 24px 24px, 24px 24px;
+  mix-blend-mode: normal;
+  z-index:-2;
+}
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:-1;
+  background:linear-gradient(90deg, rgba(255,255,255,.05), rgba(0,0,0,.05));
+  image-rendering: pixelated;
+  background-size: 8px 8px;
+  opacity:.45;
+}
+/* 🔴🔵 Red/Blue override */
+body.redblue::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: linear-gradient(to bottom, #ff4b5c 0%, #4b6aff 100%) !important;
+}
+
+body.redblue::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: none !important;
+}
+
+
+
+/* game container */
+.game{
+  position:relative;
+  min-height:100%;
+  padding:20px;
+  /* make space at bottom so fixed inventory doesn't overlap other content */
+  padding-bottom:220px;
+  box-sizing:border-box;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  gap:24px;
+}
+
+/* topbar */
+.cash{
+  font-family:"Bungee", sans-serif;
+  font-size: clamp(28px, 5vw, 54px);
+  background: var(--ui-blue);
+  color:#000;
+  border:6px solid #0e2a4c;
+  border-radius: 28px;
+  padding: 6px 28px 8px;
+  box-shadow: var(--shadow);
+  letter-spacing:2px;
+  text-shadow: 0 2px 0 rgba(255,255,255,.35);
+}
+.topbar{ display:flex; gap:14px; align-items:center; justify-content:center; flex-wrap:wrap; }
+.eps{ padding:6px 12px; border-radius:12px; background:rgba(0,0,0,.35); font-weight:800; }
+
+/* left rail */
+.left-rail{
+  position:fixed;
+  left:16px;
+  top:120px;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  z-index:7;
+}
+.icon-btn{
+  width:96px;
+  height:96px;
+  border-radius:20px;
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  box-shadow:var(--shadow);
+  border:4px solid rgba(0,0,0,.4);
+}
+.icon-shop{ background:#57d85a; }
+.icon-tools{ background:#8c8f95; }
+.icon-music{ background: linear-gradient(45deg,#ffd86a,#ff7ac7); }
+.icon-pets{ background: #ffb6e6; } /* paw button style */
+.icon-btn svg{ width:64%; height:64%; }
+
+/* stands / pedestals area (keeps visually centered above inventory) */
+.stands{
+  margin-top:24px;
+  margin-bottom:12px; /* small gap before the visual area above the inventory */
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:40px;
+  width:min(100%,1000px);
+  z-index:3;
+}
+.stand{
+  position:relative;
+  /* taller so pedestals sit well above the bottom inventory bar */
+  height:160px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+}
+.pedestal{
+  width: 200px;
+  height: 48px;
+  background: linear-gradient(#ffda66, #f0a800);
+  border-radius: 12px;
+  box-shadow: inset 0 6px 0 rgba(255,255,255,.35), 0 10px 0 #bb7a00, 0 14px 18px rgba(0,0,0,.4);
+}
+.placed{
+  position:absolute;
+  /* position above pedestal; increased so it reads nicely above the bottom inventory */
+  bottom:110px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:160px;
+  height:80px;
+  border-radius:16px;
+  background:rgba(0,0,0,.18);
+  backdrop-filter: blur(1px);
+  outline:4px solid rgba(0,0,0,.35);
+  transition:transform .15s ease, box-shadow .2s;
+  z-index:4;
+}
+.placed:hover{ transform:translateY(-3px) scale(1.02); }
+.placed.glow{ box-shadow:0 8px 30px rgba(255,220,120,.9); transform:translateY(-6px) scale(1.06); }
+
+/* PET ROW */
+.pet-row{
+  margin-top:8px;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:40px;
+  width:min(100%,1000px);
+  z-index:3;
+}
+.pet-stand{
+  position:relative;
+  height:120px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:center;
+}
+.pet-pedestal{
+  width: 140px;
+  height: 40px;
+  background: linear-gradient(#c3c3c3, #8e8e8e);
+  border-radius: 10px;
+  box-shadow: inset 0 4px 0 rgba(255,255,255,.35), 0 6px 0 rgba(0,0,0,.25);
+}
+.pet-placed{
+  position:absolute;
+  bottom:60px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:120px;
+  height:64px;
+  border-radius:12px;
+  background:rgba(0,0,0,.14);
+  outline:3px solid rgba(0,0,0,.35);
+  z-index:4;
+}
+.pet-placed img{ width:56px; height:56px; border-radius:8px; margin-right:6px; }
+
+/* timer badge on pet placed */
+.pet-timer{
+  position:absolute;
+  bottom:58px;
+  left:6px;
+  font-size:12px;
+  padding:4px 8px;
+  border-radius:10px;
+  background:rgba(0,0,0,.6);
+  color:#fff;
+  z-index:6;
+}
+
+/* === INVENTORY FIXED TO BOTTOM (MAIN CHANGES) === */
+.inventory-wrap{
+  /* make the inventory a fixed bottom bar centered horizontally */
+  position:fixed;
+  left:50%;
+  transform:translateX(-50%);
+  bottom:18px;
+  width: min(1100px, 96%);
+  z-index:8;
+  display:flex;
+  justify-content:center;
+  pointer-events:auto;
+}
+
+/* inventory container styled to match the concept art: big rounded rectangle with thick outline */
+.inventory{
+  display:flex;
+  gap:16px;
+  overflow-x:auto;
+  padding:20px;
+  background: linear-gradient(180deg, #d0d2d6, #a9adaf); /* subtle metallic grey like the concept */
+  border-radius:28px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.6), var(--shadow);
+  border:8px solid #111; /* thick dark outline similar to concept */
+  align-items:center;
+  /* ensure the inventory bar doesn't shrink too small on tiny screens */
+  min-width: 320px;
+}
+
+/* larger slot sizes to match concept visuals */
+.slot{
+  min-width:140px;
+  height:112px;
+  background: #b4b8bd;
+  border-radius:20px;
+  display:grid;
+  place-items:center;
+  color:#111;
+  font-weight:700;
+  border:6px solid #262a2f;
+  position:relative;
+  cursor:pointer;
+  flex: 0 0 auto;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35) inset;
+}
+.slot.selected{ outline:6px solid var(--ui-blue);}
+.slot .rar{
+  position:absolute;
+  right:8px;
+  bottom:8px;
+  font-size:12px;
+  padding:3px 8px;
+  border-radius:12px;
+  background:rgba(0,0,0,.4);
+  color:#fff;
+}
+.slot img{ width:72px; height:72px; border-radius:10px; }
+
+/* shop overlay and other UI left mostly unchanged */
+.overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.45);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:10;
+}
+.overlay.show{ display:flex; }
+.shop{
+  width:min(1000px, 92%);
+  background:#4a4a52;
+  border-radius:30px;
+  border:6px solid #212127;
+  box-shadow:var(--shadow);
+  padding:24px;
+  position:relative;
+  color:#e8e8ee;
+}
+.shop h2{ text-align:center; margin:0 0 18px 0; font-family:"Russo One"; font-size:42px; letter-spacing:1px; color:#8aff8f; text-shadow:0 2px 0 #0f0f0f; }
+.refresh-note{ text-align:center; font-weight:700; opacity:.85; margin-top:10px; }
+.grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+.card{ background:#33333b; border-radius:22px; border:4px solid #1a1a1f; padding:18px; display:flex; flex-direction:column; gap:8px; justify-content:space-between; min-height:160px; }
+.card h3{ margin:0; font-size:30px; font-family:"Russo One"; letter-spacing:1px; color:#d7d9dd; }
+.tag{ font-size:26px; font-family:"Bungee"; letter-spacing:1px; -webkit-text-stroke:2px #000; color:transparent; filter:drop-shadow(0 2px 0 rgba(0,0,0,.5)); }
+.t-common{ color:var(--c-common); }
+.t-rare{ color:var(--c-rare); }
+.t-epic{ color:var(--c-epic); }
+.t-legendary{ color:var(--c-legendary); }
+.t-birthday {
+  background: linear-gradient(90deg, #ff62d5, #ffd700, #ff62d5);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: birthdayAnim 1.2s linear infinite;
+  font-weight:900;
+}
+@keyframes birthdayAnim {
+  0% { background-position: 0% 50%; letter-spacing: 2px; }
+  50% { background-position: 100% 50%; letter-spacing: 6px; }
+  100% { background-position: 0% 50%; letter-spacing: 2px; }
+}
+.t-legacy{
+  background: linear-gradient(90deg, #ff004c, #ff7a00, #ffd400, #18e300, #00e7ff, #3a31ff, #ff31ff, #ff004c);
+  background-size: 400% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rainbowShift 4s linear infinite;
+}
+.t-mythic{
+  background: linear-gradient(90deg, #ffd700, #fff8b0, #ffcc00);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: goldShimmer 2.5s linear infinite;
+  font-weight:900;
+}
+
+.t-unique {
+  color: navy;
+  text-shadow: 0 0 6px rgba(0,0,128,.6);
+  animation: uniqueSparkle 2s linear infinite;
+}
+@keyframes uniqueSparkle {
+  0%,100% { text-shadow: 0 0 6px rgba(255,255,255,.2); }
+  50%     { text-shadow: 0 0 10px rgba(255,255,255,.7); }
+}
+
+.t-exotic {
+  color: cyan;
+  text-shadow: 0 0 8px rgba(0,255,255,.7);
+  animation: exoticPulse 2.5s ease-in-out infinite;
+}
+@keyframes exoticPulse {
+  0%,100% { text-shadow: 0 0 8px rgba(0,255,255,.3); }
+  50%     { text-shadow: 0 0 16px rgba(0,255,255,1); }
+}
+
+/* apply on the <p> wrapper holding the item image */
+.glow-exotic {
+  filter: drop-shadow(0 0 8px rgba(0,255,255,.8))
+          drop-shadow(0 0 16px rgba(0,255,255,.5));
+}
+
+
+.t-unique {
+  color: navy;
+  position: relative;
+  text-shadow: 0 0 3px rgba(255,255,255,0.3);
+}
+
+/* Sparkle effect overlay */
+.t-unique::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: calc(100% + 4px);
+  height: calc(100% + 4px);
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.5) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: uniqueSparkle 2.5s linear infinite;
+  mix-blend-mode: screen;
+  border-radius: 4px;
+}
+
+@keyframes uniqueSparkle {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+
+@keyframes rainbowShift{ 0%{ background-position: 0% 50%; } 100%{ background-position: 100% 50%; } }
+@keyframes goldShimmer{ 0%{ background-position: 0% 50%; } 100%{ background-position: 200% 50%; } }
+
+.price{ font-weight:900; font-size:22px; }
+.buy{ align-self:flex-end; padding:10px 16px; font-weight:900; border:none; border-radius:14px; cursor:pointer; background:linear-gradient(var(--ui-blue), var(--ui-blue-dark)); color:#fff; box-shadow:var(--shadow); }
+.buy:disabled{ filter:grayscale(1) brightness(.7); cursor:not-allowed; }
+.closeX{ position:absolute; right:12px; top:8px; font-size:28px; background:#222; color:#fff; border:none; border-radius:14px; width:44px; height:44px; cursor:pointer; }
+
+/* forge button */
+#forgeBtn{
+  margin-top:6px;
+  padding:10px 18px;
+  border-radius:14px;
+  background: linear-gradient(45deg, #ffd86a, #ffb200);
+  border:4px solid rgba(0,0,0,.35);
+  color:#000;
+  font-weight:900;
+  box-shadow: 0 8px 30px rgba(255,200,60,0.18);
+  cursor:pointer;
+  display:none;
+}
+
+/* responsive tweaks */
+@media (max-width:800px){
+  .stands{ gap:22px; }
+  .pedestal{ width:150px;}
+  .placed{ width:130px; bottom:90px; }
+  .icon-btn{ width:76px; height:76px; }
+  .slot{ min-width:100px; height:88px; }
+  .inventory{ padding:12px; gap:8px; border-radius:18px; }
+  .inventory-wrap{ bottom:12px; width: calc(100% - 30px); }
+}
+
+/* 🔴🔵 Full background override for red/blue mode */
+body.redblue {
+  background: linear-gradient(to bottom, #ff4b5c 0%, #4b6aff 100%) !important;
+}
+
+body.redblue::before,
+body.redblue::after {
+  display: none !important; /* turn off the original pseudo-element layers */
+}
+
+
+</style>
+</head>
+<body>
+<div class="game">
+  <div class="topbar">
+    <div class="cash" id="cash">$1,000,000</div>
+    <div class="eps" id="eps">+ $0 / sec</div>
+  </div>
+
+  <div class="left-rail">
+  <div id="userDisplay" style="margin-bottom:16px;text-align:center;font-weight:bold;font-size:1.2em;color:#222;background:#fff7e0;padding:8px 0;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.10);">
+  <!-- Username will appear here -->
+  </div>
+    <button class="icon-btn icon-shop" id="openShop" aria-label="Open shop" title="Shop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#e40000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1.8"></circle>
+        <circle cx="20" cy="21" r="1.8"></circle>
+        <path d="M1 2h3l3.6 12.4a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.6L23 6H6"></path>
+      </svg>
+    </button>
+    <button class="icon-btn icon-tools" id="toolsBtn" aria-label="Tools" title="Tools (toggle fast refresh)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22.7 19.3L13 9.6M16 3a5 5 0 0 0-6.2 6.2l-7.7 7.7a2.5 2.5 0 1 0 3.5 3.5l7.7-7.7A5 5 0 0 0 21 8"></path>
+      </svg>
+    </button>
+
+    <!-- NEW: Pet Shop button (paw) -->
+    <button class="icon-btn icon-pets" id="openPetShop" aria-label="Pet Shop" title="Pet Shop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 21s-4-2.5-6.5-5.5C2.5 12 5 8 7.5 8c1.5 0 2.5 1 3.5 1s2-1 3.5-1C17 8 19.5 12 18.5 15.5 16 18.5 12 21 12 21z" fill="none"/>
+        <circle cx="7" cy="7" r="2" fill="none"/>
+        <circle cx="17" cy="7" r="2" fill="none"/>
+        <circle cx="6" cy="12" r="1.5" fill="none"/>
+        <circle cx="18" cy="12" r="1.5" fill="none"/>
+      </svg>
+    </button>
+
+    <button class="icon-btn icon-music" id="musicBtn" aria-label="Toggle music" title="Toggle music">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17V5l11-2v12"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="16" r="2"/></svg>
+    </button>
+  </div>
+
+  <div class="stands" id="stands"></div>
+
+  <!-- Pet row will be rendered directly under stands inside renderStands -->
+
+  <!-- Forge button -->
+  <button id="forgeBtn" title="Forge 4 Legendaries into 1 Mythic">FORGE</button>
+
+  <!-- inventory is now fixed to bottom via CSS -->
+  <div class="inventory-wrap">
+    <div class="inventory" id="inventory"></div>
+  </div>
+</div>
+
+<div class="overlay" id="shopOverlay" aria-hidden="true">
+  <div class="shop" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
+    <button class="closeX" id="closeShop" aria-label="Close">✕</button>
+    <h2 id="shopTitle">Shop</h2>
+    <div class="grid" id="shopGrid"></div>
+    <div class="refresh-note" id="refreshNote">Shop refreshes every 1:30</div>
+  </div>
+</div>
+
+<!-- Pet Shop Overlay -->
+<div class="overlay" id="petOverlay" aria-hidden="true">
+  <div class="shop" role="dialog" aria-modal="true" aria-labelledby="petTitle">
+    <button class="closeX" id="closePetShop" aria-label="Close">✕</button>
+    <h2 id="petTitle">Pet Shop</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Pet Pedestal</h3>
+        <div style="font-size:18px; opacity:0.9;">Adds a pet pedestal below the pedestals. Max 2. Place eggs here to incubate.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="price">$15,000,000</div>
+          <button class="buy" id="buyPetPedestal">Purchase</button>
+        </div>
+        <div id="petPedestalStatus" style="margin-top:6px;font-weight:700;color:#6dff79;"></div>
+      </div>
+
+      <div class="card">
+        <h3>Legendary Egg</h3>
+        <div style="font-size:18px; opacity:0.9;">Hatch into Dog / Cat / Gold Dog.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="price">$10,000,000</div>
+          <button class="buy" id="buyLegendEgg">Purchase</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Mythical Egg</h3>
+        <div style="font-size:18px; opacity:0.9;">Hatch into Lion / Bear / Dino.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="price">$15,000,000</div>
+          <button class="buy" id="buyMythEgg">Purchase</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Enchanted Egg</h3>
+        <div style="font-size:18px; opacity:0.9;">Hatch into Owl / Rainbow Panda / Flex T-Rex.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="price">$25,000,000</div>
+          <button class="buy" id="buyEnchantedEgg">Purchase</button>
+        </div>
+      </div>
+
+    </div>
+    <div class="refresh-note" id="petNote">Pets hatch in 10 minutes</div>
+  </div>
+</div>
+
+
+<!-- Gear Overlay -->
+<div class="overlay" id="gearOverlay" aria-hidden="true">
+  <div class="shop" role="dialog" aria-modal="true" aria-labelledby="gearTitle">
+    <button class="closeX" id="closeGear" aria-label="Close">✕</button>
+    <h2 id="gearTitle" style="color:#ff5050;text-align:center;">Gear</h2>
+    <div class="grid">
+
+      <!-- Multiplier Tool -->
+      <div class="card" id="multiplierCard">
+        <h3>Multiplier x2</h3>
+        <div style="font-size:18px; opacity:0.85;">Doubles EPS for 20 minutes.<br>Max 4x.<br>Cooldown: 30 min.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="price">$3,000,000</div>
+          <button class="buy" id="buyMultiplier">Purchase</button>
+        </div>
+        <div id="multiplierStatus" style="margin-top:6px;font-weight:700;color:#6dff79;"></div>
+      </div>
+
+      <!-- Background Tool -->
+      <div class="card" id="backgroundCard">
+        <h3>Background Red/Blue</h3>
+        <div style="font-size:18px; opacity:0.85;">Switch gradient to red/blue.<br>One-time purchase.</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div class="price">$4,000,000</div>
+          <button class="buy" id="buyBackground">Purchase</button>
+        </div>
+        <button id="toggleBackground" class="buy" style="display:none;background:linear-gradient(#ff7a7a,#6aaaff);">Disable</button>
+      </div>
+
+
+
+  <div id="settingsOverlay" class="overlay hidden">
+    <h2>Settings</h2>
+
+    <div>
+      <button onclick="toggleBackground()">Toggle Background</button>
+    </div>
+
+    <div style="margin-top: 10px;">
+      <button onclick="downloadSave()">Download Save</button>
+    </div>
+
+    <div style="margin-top: 10px;">
+      <input type="file" id="uploadSaveInput" accept=".json" style="display:none"
+             onchange="handleSaveUpload(event)">
+      <button onclick="document.getElementById('uploadSaveInput').click()">Upload Save</button>
+    </div>
+  </div>
+
+
+    </div>
+  </div>
+</div>
+
+
+<!--
+  NOTE:
+  The JavaScript from your original file is compatible with these layout changes.
+  I intentionally left the script logic intact (no changes) — only the styles and layout were updated so the
+  inventory bar sits fixed at the bottom like your concept art, pedestals/placed items are raised above it,
+  and slots have larger sizes and a thick outlined container matching the visual.
+-->
+
+<script>
+
+/* ---------------------------
+   Paste your entire original JavaScript here (unchanged).
+   For brevity in this example I am keeping the JS unchanged from your provided code.
+   Make sure to copy the whole <script> contents from your original file into this spot.
+   --------------------------- */
+
+  /*****************
+   * GAME CONSTANTS
+   * (full JS from original file goes here)
+   *****************/
+
+  const MONEY_START = 1_000_000;
+  const STAND_COUNT = 4;
+  const SHOP_SLOTS = 4;
+
+  const RARITY = {
+    common: { label:'COMMON', color:'var(--c-common)', income: 50, price:[8_000, 40_000], prob: 0.60 },
+    rare: { label:'RARE', color:'var(--c-rare)', income: 200, price:[40_000, 150_000], prob: 0.25 },
+    epic: { label:'EPIC', color:'var(--c-epic)', income: 800, price:[150_000, 420_000], prob: 0.12 },
+    legendary:{ label:'LEGENDARY', color:'var(--c-legendary)', income: 3000, price:[420_000, 920_000], prob: 0.03 },
+    legacy:{ label:'LEGACY', color:'var(--c-legacy)', income: 8000, price:[900_000, 2_500_000], prob: 0.005 },
+    birthday: { label:'BIRTHDAY', color:'#ff62d5', income: 15000, price:[0,0], prob: 0 },
+    mythic:{ label:'MYTHIC', color:'var(--c-mythic)', income: 20000, price:[0,0], prob: 0 },
+    unique:  { label:'UNIQUE', color:'navy', income: 10000, price:[0,0], prob: 0.003 },
+    exotic:  { label:'EXOTIC', color:'cyan', income: 15000, price:[0,0], prob: 0 }
+  };
+
+  const ITEM_NAMES = [
+    '24 King Crown','Donut','3D Printer','Space Nathan','Candy Blossom',
+    'Frog Sneakers','Snake','Harry Potter\'s Wand','Retro Gameboy','Crystal Cube',
+    'Swat Night','Flashforge','Blue Walls','Golden Spatula','Rainbow Headphones',
+    'Red Government','Vecna','Aqua Drone','Burning Bud','Espresso',
+    'Pixel Panda','Sabrina','Nether Portal','Alt','Natan',
+    'Apple Watch','Chicken Jockey','67','Nathan\'s Playstation','Stale Goldfish Bag',
+    'Duolingo','Dillon\'s PC','Apple','Icon of the Seas','North America',
+    'Sheldon','Old Fan','$$$','McFlex','Junior Lifeguards',
+    'Carl','Supreme','Nike Guy','Puma Socks','Blue',
+    'Barbie','','Golden Jacket','Lucas Movies','Movie Clip Reel','Leo\'s Ethernet','Ryan\'s Hat','Lebron','Pigs\'s Blanket','Lamborghini','Dean\'s PC','USA','China','Iron Man\'s Helmet','Hanging Tree'
+  ];
+  while (ITEM_NAMES.length < 50) ITEM_NAMES.push('Item #' + (ITEM_NAMES.length+1));
+
+  const ICON_PATHS = {
+    "24 King Crown": `<path d="M18 62h60v10H18z M20 62l10-22 18 20 18-20 10 22" fill="none" stroke-width="6" stroke-linejoin="round"/>`,
+    "Donut": `<circle cx="48" cy="48" r="26" fill="none" stroke-width="6"/><circle cx="48" cy="48" r="10" fill="none" stroke-width="6"/>`,
+    "3D Printer": `<rect x="18" y="18" width="60" height="48" rx="6" fill="none" stroke-width="6"/><path d="M26 26h44v16H26zM48 42v20" fill="none" stroke-width="6"/>`,
+    "Space Nathan": `<circle cx="48" cy="38" r="14" fill="none" stroke-width="6"/><rect x="34" y="52" width="28" height="22" rx="6" fill="none" stroke-width="6"/>`,
+    "Candy Blossom": `<path d="M48 20v24M48 44c-14 0-14 18 0 18s14-18 0-18z" fill="none" stroke-width="6"/><circle cx="48" cy="20" r="6" fill="none" stroke-width="6"/>`,
+    "Frog Sneakers": `<rect x="20" y="54" width="56" height="16" rx="8" fill="none" stroke-width="6"/><path d="M24 54c6-12 24-12 30 0" fill="none" stroke-width="6"/>`,
+    "Snake": `<path d="M20 58c10-18 26-18 36-8s20 10 20 2-8-12-16-12" fill="none" stroke-width="6" stroke-linecap="round"/>`,
+    "Harry Potter's Wand": `<path d="M20 74L76 18" fill="none" stroke-width="6"/><circle cx="76" cy="18" r="4" />`,
+    "Retro Gameboy": `<rect x="28" y="16" width="40" height="64" rx="8" fill="none" stroke-width="6"/><rect x="34" y="22" width="28" height="24" rx="4" fill="none" stroke-width="6"/><circle cx="46" cy="56" r="4"/><circle cx="54" cy="60" r="4"/>`,
+    "Crystal Cube": `<rect x="28" y="28" width="40" height="40" rx="6" fill="none" stroke-width="6"/><path d="M28 48h40M48 28v40" fill="none" stroke-width="6"/>`,
+    "Swat Night": `<path d="M22 60h52l8-20H30z" fill="none" stroke-width="6"/><circle cx="34" cy="64" r="4"/><circle cx="62" cy="64" r="4"/>`,
+    "Flashforge": `<path d="M24 48l24-24 24 24-24 24z" fill="none" stroke-width="6"/>`,
+    "Blue Walls": `<rect x="20" y="24" width="56" height="44" rx="4" fill="none" stroke-width="6"/><path d="M20 46h56" fill="none" stroke-width="6"/>`,
+    "Golden Spatula": `<path d="M48 22v44" fill="none" stroke-width="6"/><rect x="36" y="22" width="24" height="12" rx="2" fill="none" stroke-width="6"/>`,
+    "Rainbow Headphones": `<path d="M26 48a22 22 0 0 1 44 0" fill="none" stroke-width="6"/><rect x="18" y="44" width="14" height="24" rx="6" fill="none" stroke-width="6"/><rect x="64" y="44" width="14" height="24" rx="6" fill="none" stroke-width="6"/>`,
+    "Red Government": `<rect x="24" y="40" width="48" height="28" rx="4" fill="none" stroke-width="6"/><path d="M24 40l24-16 24 16" fill="none" stroke-width="6"/>`,
+    "Vecna": `<path d="M48 20c-10 8-10 16 0 24 10-8 10-16 0-24z" fill="none" stroke-width="6"/><circle cx="48" cy="58" r="10" fill="none" stroke-width="6"/>`,
+    "Aqua Drone": `<circle cx="48" cy="48" r="12" fill="none" stroke-width="6"/><path d="M20 48h16M60 48h16M48 20v16M48 60v16" fill="none" stroke-width="6"/>`,
+    "Burning Bud": `<path d="M48 24c-18 12-18 28 0 40 18-12 18-28 0-40z" fill="none" stroke-width="6"/><path d="M36 66h24" fill="none" stroke-width="6"/>`,
+    "Espresso": `<rect x="28" y="38" width="40" height="24" rx="4" fill="none" stroke-width="6"/><path d="M68 40h10v10a6 6 0 0 1-10 0z" fill="none" stroke-width="6"/>`,
+    "Pixel Panda": `<rect x="28" y="28" width="40" height="40" fill="none" stroke-width="6"/><rect x="36" y="36" width="8" height="8"/><rect x="52" y="36" width="8" height="8"/>`,
+    "Sabrina": `<circle cx="48" cy="38" r="12" fill="none" stroke-width="6"/><path d="M34 54h28l6 18H28z" fill="none" stroke-width="6"/>`,
+    "Nether Portal": `<rect x="28" y="18" width="40" height="60" rx="6" fill="none" stroke-width="6"/><rect x="36" y="26" width="24" height="44" rx="3" fill="none" stroke-width="6" />`,
+    "Alt": `<path d="M24 60l24-36 24 36" fill="none" stroke-width="6"/>`,
+    "Natan": `<path d="M24 64l24-24 24 24" fill="none" stroke-width="6"/><circle cx="48" cy="34" r="6" fill="none" stroke-width="6"/>`,
+    "Apple Watch": `<rect x="28" y="28" width="40" height="40" rx="10" fill="none" stroke-width="6"/><rect x="36" y="36" width="24" height="24" rx="6" fill="none" stroke-width="6"/>`,
+    "Chicken Jockey": `<circle cx="36" cy="44" r="10" fill="none" stroke-width="6"/><rect x="42" y="48" width="26" height="18" rx="6" fill="none" stroke-width="6"/>`,
+    "67": `<path d="M30 36h36M30 36v36M66 36v36M30 54h24" fill="none" stroke-width="6"/>`,
+    "Nathan's Playstation": `<rect x="24" y="56" width="48" height="10" rx="4" fill="none" stroke-width="6"/><path d="M28 56h40l-6-16H34z" fill="none" stroke-width="6"/>`,
+    "Stale Goldfish Bag": `<rect x="30" y="24" width="36" height="48" rx="6" fill="none" stroke-width="6"/><path d="M30 32h36" fill="none" stroke-width="6"/>`,
+    "Duolingo": `<path d="M30 44l18-12 18 12-18 12z" fill="none" stroke-width="6"/><circle cx="40" cy="44" r="3"/><circle cx="56" cy="44" r="3"/>`,
+    "Dillon's PC": `<rect x="24" y="28" width="48" height="30" rx="6" fill="none" stroke-width="6"/><rect x="34" y="60" width="28" height="6" rx="3" fill="none" stroke-width="6"/>`,
+    "Apple": `<circle cx="48" cy="44" r="16" fill="none" stroke-width="6"/><path d="M48 26c4 0 6 2 8 4" fill="none" stroke-width="6"/>`,
+    "Icon of the Seas": `<path d="M24 58h48l8-10H32z" fill="none" stroke-width="6"/><rect x="36" y="42" width="24" height="8" rx="2" fill="none" stroke-width="6"/>`,
+    "North America": `<path d="M28 40l10-8 12 6 10-8 8 10-8 10-12 4-10-6z" fill="none" stroke-width="6"/>`,
+    "Sheldon": `<circle cx="48" cy="36" r="10" fill="none" stroke-width="6"/><rect x="36" y="48" width="24" height="20" rx="8" fill="none" stroke-width="6"/>`,
+    "Old Fan": `<circle cx="48" cy="48" r="18" fill="none" stroke-width="6"/><path d="M48 30v36M30 48h36" fill="none" stroke-width="6"/>`,
+    "$$$": `<path d="M48 24v48M34 38c0-8 28-8 28 0s-28 8-28 16 28 8 28 0" fill="none" stroke-width="6"/>`,
+    "McFlex": `<rect x="24" y="40" width="48" height="24" rx="6" fill="none" stroke-width="6"/><path d="M28 40c8-12 32-12 40 0" fill="none" stroke-width="6"/>`,
+    "Junior Lifeguards": `<circle cx="48" cy="48" r="18" fill="none" stroke-width="6"/><path d="M48 30v36M30 48h36" fill="none" stroke-width="6"/>`,
+    "Carl": `<path d="M36 32h24v12H36zM34 50h28v14H34z" fill="none" stroke-width="6"/>`,
+    "Supreme": `<rect x="22" y="42" width="52" height="14" rx="7" fill="none" stroke-width="6"/>`,
+    "Nike Guy": `<path d="M24 62c24-4 40-14 48-24-6 14-22 24-48 24z" fill="none" stroke-width="6" stroke-linecap="round"/>`,
+    "Puma Socks": `<rect x="28" y="46" width="18" height="20" rx="4" fill="none" stroke-width="6"/><path d="M46 64h22v-14" fill="none" stroke-width="6"/>`,
+    "Blue": `<circle cx="48" cy="48" r="20" fill="none" stroke-width="6"/>`,
+    "Barbie": `<path d="M30 62c6-12 24-12 36 0" fill="none" stroke-width="6"/><circle cx="48" cy="40" r="10" fill="none" stroke-width="6"/>`,
+    "": `<path d="M48 26l18 36H30z" fill="none" stroke-width="6"/>`,
+    "Golden Jacket": `<rect x="26" y="28" width="44" height="36" rx="8" fill="none" stroke-width="6"/><path d="M26 44h44" fill="none" stroke-width="6"/>`,
+    "Lucas Movies": `<rect x="26" y="34" width="44" height="28" rx="4" fill="none" stroke-width="6"/><rect x="24" y="38" width="8" height="20"/><rect x="64" y="38" width="8" height="20"/>`,
+    "Movie Clip Reel": `<circle cx="36" cy="48" r="12" fill="none" stroke-width="6"/><circle cx="60" cy="48" r="12" fill="none" stroke-width="6"/><path d="M24 48h12M60 48h12" fill="none" stroke-width="6"/>`,
+    "Leo's Ethernet": `<rect x="24" y="52" width="48" height="10" rx="3" fill="none" stroke-width="6"/><path d="M30 52V42h36v10" fill="none" stroke-width="6"/>`,
+    "Ryan's Hat": `<path d="M24 54c8-18 40-18 48 0" fill="none" stroke-width="6"/><rect x="24" y="54" width="48" height="10" rx="5" fill="none" stroke-width="6"/>`,
+    "Lebron": `<circle cx="48" cy="40" r="10" fill="none" stroke-width="6"/><rect x="34" y="52" width="28" height="20" rx="6" fill="none" stroke-width="6"/>`,
+    "Pigs's Blanket": `<rect x="26" y="40" width="44" height="22" rx="6" fill="none" stroke-width="6"/><circle cx="34" cy="52" r="4"/>`,
+    "Lamborghini": `<path d="M22 56h52l8-12H30z" fill="none" stroke-width="6"/><circle cx="34" cy="62" r="4"/><circle cx="62" cy="62" r="4"/>`,
+    "Dean's PC": `<rect x="24" y="28" width="48" height="30" rx="6" fill="none" stroke-width="6"/><rect x="34" y="60" width="28" height="6" rx="3" fill="none" stroke-width="6"/>`,
+    "USA": `<path d="M26 42h44M26 50h44M26 58h44" fill="none" stroke-width="6"/><rect x="26" y="34" width="16" height="16" fill="none" stroke-width="6"/>`,
+    "China": `<rect x="28" y="34" width="40" height="28" fill="none" stroke-width="6"/><path d="M32 40l4-2 2 4" fill="none" stroke-width="6"/>`,
+    "Iron Man's Helmet": `<path d="M32 24h32l8 16v20l-8 12H32L24 60V40z" fill="none" stroke-width="6"/>`,
+    "Hanging Tree": `<path d="M30 66V26M30 32h28M58 32v22" fill="none" stroke-width="6"/><path d="M30 26c8-4 16-4 24 0" fill="none" stroke-width="6"/>`
+  };
+
+  function getItemSvg(name, idx, rarity){
+    const size = 96;
+    const accentByRarity = {
+        common:'#8ee78e',
+        rare:'#6ec8ff',
+        epic:'#c28bff',
+        legendary:'#ffd86a',
+        legacy:'#ffffff',
+        mythic:'#ffd86a',
+        unique:'navy',
+        exotic:'cyan'
+    };
+    const accent = accentByRarity[rarity] || '#cfd3d7';
+    const hue = (idx*53 + (rarity==='legendary'?40:rarity==='epic'?20:0)) % 360;
+    const bg = `hsl(${hue} 65% 24%)`;
+    const body = ICON_PATHS.hasOwnProperty(name) ? ICON_PATHS[name] : `<circle cx="48" cy="48" r="20" fill="none" stroke-width="6"/>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 96 96">
+      <defs>
+        <filter id="d${idx}" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.35"/>
+        </filter>
+      </defs>
+      <rect x="4" y="4" width="88" height="88" rx="14" fill="${bg}" />
+      <g transform="translate(0,0)" filter="url(#d${idx})" stroke="${accent}">
+        ${body}
+      </g>
+    </svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+
+  /* Simple egg SVG generator */
+  function getEggSvg(eggType, seed){
+    const size=96;
+    const colorMap = { legendary: '#ffd86a', mythical:'#ff9900', enchanted:'#33cc33' };
+    const accent = colorMap[eggType] || '#ddd';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 96 96">
+      <defs>
+        <filter id="eg${seed}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.35"/></filter>
+      </defs>
+      <rect x="4" y="4" width="88" height="88" rx="14" fill="#333" />
+      <g filter="url(#eg${seed})">
+        <ellipse cx="48" cy="52" rx="22" ry="28" fill="${accent}" />
+        <ellipse cx="40" cy="40" rx="6" ry="4" fill="#fff" opacity="0.65"/>
+      </g>
+    </svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+
+  function getPetSvg(petName, seed){
+    // simple stylized pet icon — reuse getItemSvg style logic but simpler fill
+    const size=96;
+    const hue = (seed * 97) % 360;
+    const bg = `hsl(${hue} 60% 35%)`;
+    const body = `<text x="48" y="58" font-size="14" font-weight="700" text-anchor="middle" fill="#fff">${escapeXml(petName.slice(0,6))}</text>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 96 96">
+      <rect x="4" y="4" width="88" height="88" rx="14" fill="${bg}" />
+      ${body}
+    </svg>`;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  }
+
+  function escapeXml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function displayName(n){ return (n && n.trim()) ? n : 'Mystery'; }
+
+  const LS_KEY = 'flex-save-v1';
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+
+  const state = {
+    money: MONEY_START,
+    eps: 0,
+    inventory: [],
+    stands: [null,null,null,null],
+    placed: {},
+    selectedItemUid: null,
+    fastMode: false,
+    shop: { items:[], nextRefreshAt:0 },
+
+    // new pet-related state:
+    petPedestalsPurchased: 0,           // 0..2
+    petStands: [null,null],             // each entry: null or { uid,name,isEgg,eggType,petType,petEps,svg,baseIdx }
+    petTimers: {},                      // map index -> timestamp (ms) when hatch will happen
+    permanentPetMultiplier: 1           // becomes 5 if Flex T-Rex hatched
+  };
+
+  function uid(){ return Math.random().toString(36).slice(2)+Date.now().toString(36); }
+ const SERVER_BASE = 'https://flex-sdww.onrender.com/api/game'; // use your actual Render.com URL
+
+// Identify user (for demo, use a prompt and store in localStorage)
+let USER_ID = localStorage.getItem('flex-userid');
+if (!USER_ID) {
+  USER_ID = prompt('Enter your username (or type "guest"):');
+  localStorage.setItem('flex-userid', USER_ID);
+}
+document.getElementById("userDisplay").textContent = USER_ID ? `User: ${USER_ID}` : "No user";
+
+async function save() {
+  const payload = {
+    money: state.money,
+    eps: state.eps,
+    inventory: state.inventory.map(it=>({uid:it.uid,name:it.name,rarity:it.rarity,price:it.price,baseIdx:it.baseIdx,isEgg:it.isEgg,eggType:it.eggType,petType:it.petType,petEps:it.petEps,svg:it.svg})),
+    stands: state.stands,
+    shop: state.shop,
+    fastMode: state.fastMode,
+    multiplierLevel,
+    multiplierActiveUntil,
+    multiplierCooldownUntil,
+    backgroundPurchased,
+    backgroundEnabled,
+
+    placed: {},
+    petPedestalsPurchased: state.petPedestalsPurchased,
+    petStands: {}, // serialized by index
+    petTimers: state.petTimers,
+    permanentPetMultiplier: state.permanentPetMultiplier
+  };
+  for(const k in state.placed){
+    const it = state.placed[k];
+    if(it) payload.placed[k] = { uid: it.uid, name: it.name, rarity: it.rarity, price: it.price, baseIdx: it.baseIdx };
+  }
+  // serialize pet stands
+  state.petStands.forEach((ps, idx) => {
+    if(ps) payload.petStands[idx] = { uid:ps.uid, name:ps.name, isEgg:!!ps.isEgg, eggType:ps.eggType||null, petType:ps.petType||null, petEps:ps.petEps||0, svg:ps.svg, baseIdx: ps.baseIdx||0 };
+  });
+
+  try {
+    await fetch(`${SERVER_BASE}/save?user=${encodeURIComponent(USER_ID)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    console.error('Failed to save game:', e);
+  }
+}
+
+async function load() {
+  try {
+    const res = await fetch(`${SERVER_BASE}/load?user=${encodeURIComponent(USER_ID)}`);
+    if (!res.ok) return;
+    const dat = await res.json();
+    if (!dat) return;
+
+    state.money = dat.money ?? state.money;
+    state.eps = dat.eps ?? state.eps;
+    state.inventory = (dat.inventory||[]).map(it=>({
+      ...it, uid:it.uid, svg: it.svg || (it.isEgg ? getEggSvg(it.eggType || 'legendary', Math.floor(Math.random()*9999)) : getItemSvg(it.name, it.baseIdx||0, it.rarity)), baseIdx: it.baseIdx||0
+    }));
+    state.stands = dat.stands ?? state.stands;
+    state.shop = dat.shop ?? state.shop;
+    state.fastMode = dat.fastMode ?? state.fastMode;
+    state.placed = {};
+    // NEW Gear persistence
+    multiplierLevel = dat.multiplierLevel ?? 1;
+    multiplierActiveUntil = dat.multiplierActiveUntil ?? 0;
+    multiplierCooldownUntil = dat.multiplierCooldownUntil ?? 0;
+    backgroundPurchased = dat.backgroundPurchased ?? false;
+    backgroundEnabled = dat.backgroundEnabled ?? false;
+
+    if (backgroundPurchased) {
+       document.getElementById("buyBackground").style.display = "none";
+      document.getElementById("toggleBackground").style.display = "inline-block";
+    }
+    if (backgroundEnabled) {
+      document.body.classList.add("redblue");
+    }
+
+    if(dat.placed){
+      for(const k in dat.placed){
+        const it = dat.placed[k];
+        state.placed[k] = { ...it, uid:it.uid, svg: getItemSvg(it.name, it.baseIdx||0, it.rarity), baseIdx: it.baseIdx||0 };
+      }
+    }
+
+    // load pet stuff
+    state.petPedestalsPurchased = dat.petPedestalsPurchased ?? state.petPedestalsPurchased;
+    if(dat.petStands){
+      for(const k in dat.petStands){
+        const p = dat.petStands[k];
+        state.petStands[Number(k)] = {
+          uid: p.uid,
+          name: p.name,
+          isEgg: !!p.isEgg,
+          eggType: p.eggType || null,
+          petType: p.petType || null,
+          petEps: p.petEps || 0,
+          svg: p.svg || (p.isEgg ? getEggSvg(p.eggType||'legendary', Number(k)+Math.floor(Math.random()*9999)) : getPetSvg(p.petType||p.name, Number(k)+Math.floor(Math.random()*9999))),
+          baseIdx: p.baseIdx||0
+        };
+      }
+    }
+    state.petTimers = dat.petTimers ?? state.petTimers;
+    state.permanentPetMultiplier = dat.permanentPetMultiplier ?? state.permanentPetMultiplier;
+  } catch (e) {
+    console.warn("load failed", e);
+  }
+}
+  function fmt(n){ return n.toLocaleString(undefined,{maximumFractionDigits:0}); }
+  function updateTop(){ $('#cash').textContent = '$' + fmt(Math.max(0, Math.floor(state.money))); $('#eps').textContent = '+ $' + fmt(state.eps) + ' / sec'; }
+function recalcEPS(){
+  // Recalculate base EPS without multiplier; tolerant to uppercase/missing rarities
+  let baseTotal = 0;
+
+  state.stands.forEach(uid => {
+    if(!uid) return;
+    const it = state.placed[uid] || state.inventory.find(x => x.uid === uid);
+    if(!it) return;
+    
+    console.log('EPS item check:', it.name, it.rarity);  // <--- ADD THIS
+    
+    const key = String(it.rarity || 'common').toLowerCase();
+    const incomeVal = (RARITY[key] && Number(RARITY[key].income)) ? Number(RARITY[key].income) : 0;
+    if(!RARITY[key]) console.warn('recalcEPS: unknown rarity for item', it.name, 'rarity:', it.rarity);
+    baseTotal += incomeVal;
+  });
+
+  // Sum pet EPS (unchanged but coerced to number)
+  let petTotal = 0;
+  state.petStands.forEach(ps => {
+    if(!ps) return;
+    if(ps.petEps) petTotal += Number(ps.petEps) || 0;
+  });
+
+  // Combine and apply multipliers safely
+  let combined = (Number(baseTotal) || 0) + (Number(petTotal) || 0);
+  combined = combined * (Number(multiplierLevel) || 1) * (Number(state.permanentPetMultiplier) || 1);
+
+  baseEPS = baseTotal; // keep base for reference
+  state.eps = Math.floor(combined) || 0;
+  updateTop();
+  save();
+}
+  let lastTick = performance.now();
+function tick(now) {
+  const dt = (now - lastTick)/1000;
+  lastTick = now;
+
+  // 💰 Earnings
+  if (state.eps>0){
+    state.money += state.eps * dt;
+    updateTop();
+  }
+
+  // 🐣 Pets
+  checkPetHatches();
+
+  // ⏲️ NEW: turn off multiplier after active time ends
+  if (multiplierLevel > 1 && Date.now() > multiplierActiveUntil) {
+    multiplierLevel = 1;
+    recalcEPS(); // recalc without the boost
+    updateMultiplierStatus();
+  }
+
+  requestAnimationFrame(tick);
+}
+
+function downloadSave() {
+  try {
+    const blob = new Blob([JSON.stringify(state)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "my-save.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert("Error saving file: " + err.message);
+  }
+}
+
+function handleSaveUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      state = data; // overwrite game state
+
+      // re-render everything
+      renderStands();
+      renderInventory();
+      recalcEPS();
+      save();
+
+      alert("Save file loaded successfully!");
+    } catch (err) {
+      alert("Invalid save file.");
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
+}
+
+
+
+function rarityBadge(r){
+  // normalize to lowercase key used in RARITY object
+  const key = String(r || 'common').toLowerCase();
+  const label = (RARITY[key] && RARITY[key].label) ? RARITY[key].label : String(r || 'COMMON');
+  return `<span class="rar t-${key}">${label}</span>`;
+}
+  
+  function renderInventory(){
+    const wrap = $('#inventory');
+    wrap.innerHTML='';
+    state.inventory.forEach(it=>{
+      const el = document.createElement('div');
+      el.className = 'slot' + (state.selectedItemUid===it.uid?' selected':'');
+      // badge: EGG or PET or rarity
+      let badgeHtml = '';
+      if(it.isEgg) badgeHtml = `<div class="rar" style="right:8px;bottom:8px;background:rgba(255,255,255,.12);color:#fff;">EGG</div>`;
+      else badgeHtml = rarityBadge(it.rarity || 'common');
+
+      el.innerHTML = `<img src='${it.svg}' alt='${escapeXml(displayName(it.name))}'/><div style="position:absolute;top:6px;left:8px;font-size:12px;color:#fff;font-weight:700;text-shadow:0 1px 0 #000">${escapeXml(displayName(it.name))}</div>${badgeHtml}`;
+      el.style.setProperty('--rcolor', RARITY[it.rarity]?.color || 'var(--c-common)');
+      const badge = el.querySelector('.rar');
+      if(badge) {
+        badge.style.border = '2px solid rgba(255,255,255,.25)';
+        badge.style.color = '#111';
+      }
+      el.addEventListener('click',()=>{
+        state.selectedItemUid = (state.selectedItemUid===it.uid?null:it.uid);
+        renderInventory();
+      });
+      wrap.appendChild(el);
+    });
+  }
+
+  function checkExoticForge() {
+  const allLegacy = state.stands.every(uid => {
+    if (!uid) return false;
+    const it = state.placed[uid] || state.inventory.find(x => x.uid === uid);
+    return it && it.rarity && it.rarity.toLowerCase() === 'legacy';
+  });
+
+  let btn = document.getElementById('exoticForgeBtn');
+  if (allLegacy) {
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'exoticForgeBtn';
+      btn.textContent = 'FORGE EXOTIC';
+      btn.style.cssText = 'margin-top:6px;padding:10px 18px;border-radius:14px;background:linear-gradient(45deg, #7fefff, #4fd9ff);border:4px solid rgba(0,0,0,.35);color:#000;font-weight:900;box-shadow:0 8px 30px rgba(127,239,255,0.4);cursor:pointer;';
+      btn.addEventListener('click', () => {
+  // remove the 4 legacy items from stands
+  for (const uid of state.stands) {
+    if (uid) delete state.placed[uid];
+  }
+  state.stands = [null, null, null, null];
+
+  // create new exotic item and place it on stand 0
+  const name = ITEM_NAMES[Math.floor(Math.random() * ITEM_NAMES.length)];
+  const newItem = {
+    uid: uid(),
+    name,
+    rarity: 'exotic',
+    price: 0,
+    baseIdx: Math.floor(Math.random() * ITEM_NAMES.length),
+    svg: getItemSvg(name, Math.floor(Math.random() * 9999), 'exotic')
+  };
+
+  state.placed[newItem.uid] = newItem;
+  state.stands[0] = newItem.uid;  // place on first stand
+
+  recalcEPS();
+  renderInventory();
+  renderStands();
+  save();
+});
+      document.querySelector('.game').insertBefore(btn, document.querySelector('.inventory-wrap'));
+    }
+    btn.style.display = 'inline-block';
+  } else if (btn) {
+    btn.style.display = 'none';
+  }
+}
+
+  
+  function renderStands() {
+  const area = document.getElementById('stands');
+  area.innerHTML = '';
+  for (let i = 0; i < STAND_COUNT; i++) {
+    const box = document.createElement('div');
+    box.className = 'stand';
+
+    // The UID of the item placed on this stand (or null)
+    const placed = state.stands[i];
+
+    // Create the pedestal (always present)
+    const ped = document.createElement('div');
+    ped.className = 'pedestal';
+    box.appendChild(ped);
+
+    // If there is an item placed on this stand...
+    if (placed) {
+      // Find the item object (from placed or inventory)
+      const it = state.placed[placed] || state.inventory.find(x => x.uid === placed);
+      if (it) {
+        // Create the div for the placed item
+        const p = document.createElement('div');
+        p.className = 'placed';
+        p.innerHTML =
+          `<img src='${it.svg}' style='width:64px;height:64px;border-radius:8px;margin-right:8px;' alt='${escapeXml(displayName(it.name))}'/>
+           <div style="text-align:left">
+             <strong>${escapeXml(displayName(it.name))}</strong><br>
+             <span class="rar t-${it.rarity}">${RARITY[it.rarity].label}</span>
+           </div>`;
+
+        p.style.border = '4px solid rgba(0,0,0,.45)';
+        p.style.color = '#fff';
+
+        // --- BADGE ANIMATION LOGIC ---
+        // Select the badge element (the rarity label)
+        const badge = p.querySelector('.rar');
+
+const rkey = String(it.rarity || '').toLowerCase();
+
+// birthday
+if (rkey === 'birthday') {
+  badge.classList.add('t-birthday');
+}
+
+// legacy (rainbow)
+if (rkey === 'legacy') {
+  badge.style.color = 'transparent';
+  badge.style.background = 'linear-gradient(90deg, #ff004c, #ff7a00, #ffd400, #18e300, #00e7ff, #3a31ff, #ff31ff, #ff004c)';
+  badge.style.backgroundSize = '400% 100%';
+  badge.style.webkitBackgroundClip = 'text';
+  badge.style.backgroundClip = 'text';
+  badge.style.animation = 'rainbowShift 4s linear infinite';
+}
+
+// mythic (gold shimmer)
+if (rkey === 'mythic') {
+  badge.classList.add('t-mythic');
+  p.classList.add('glow');
+}
+
+// unique: sparkle-ish badge + glow
+if (rkey === 'unique') {
+  badge.classList.add('t-unique');
+  // no glow
+}
+
+// exotic: cyan glow + badge
+if (rkey === 'exotic') {
+  badge.classList.add('t-exotic');
+  p.classList.add('glow-exotic');  // apply to the <p> element with the SVG
+}
+
+        box.appendChild(p);
+      }
+    }
+
+    // Add click listener for placing/removing items
+    box.addEventListener('click', () => {
+      // If no item selected, remove placed item (if any)
+      if (!state.selectedItemUid) {
+        if (state.stands[i]) {
+          const oldUid = state.stands[i];
+          const oldItem = state.placed[oldUid] || null;
+          if (oldItem) {
+            state.inventory.push(oldItem);
+            delete state.placed[oldUid];
+          }
+          state.stands[i] = null;
+          recalcEPS();
+          renderInventory();
+          renderStands();
+          save();
+        }
+        return;
+      }
+
+      // Remove old placed item if there is one
+      if (state.stands[i]) {
+        const oldUid = state.stands[i];
+        const oldItem = state.placed[oldUid] || null;
+        if (oldItem) {
+          state.inventory.push(oldItem);
+          delete state.placed[oldUid];
+        }
+        state.stands[i] = null;
+      }
+
+      // Place new item
+      const newItem = state.inventory.find(it => it.uid === state.selectedItemUid);
+      if (!newItem) return;
+
+      state.placed[newItem.uid] = newItem;
+      state.stands[i] = newItem.uid;
+
+      state.inventory = state.inventory.filter(it => it.uid !== newItem.uid);
+      state.selectedItemUid = null;
+
+      recalcEPS();
+      renderInventory();
+      renderStands();
+
+      // Glow animation for mythic
+      const placedDiv = box.querySelector('.placed');
+      if (placedDiv) {
+        placedDiv.classList.add('glow');
+        setTimeout(() => placedDiv.classList.remove('glow'), 700);
+      }
+      save();
+    });
+
+    area.appendChild(box);
+  }
+
+  // --- PET ROW (below main pedestals) ---
+  let petRow = document.querySelector('.pet-row');
+  if(!petRow){
+    petRow = document.createElement('div');
+    petRow.className = 'pet-row';
+  } else {
+    petRow.innerHTML = '';
+  }
+
+  // We want pet pedestals aligned so that pet0 is under main stand #2 (index 1),
+  // and pet1 is under main stand #3 (index 2). We'll render four columns and
+  // only place pedestals in columns 2 and 3 when purchased.
+  for(let col=0; col<4; col++){
+    const pbox = document.createElement('div');
+    pbox.className = 'pet-stand';
+    // If column matches where pet pedestals go:
+    let placeIndex = null;
+    if(col === 1 && state.petPedestalsPurchased >= 1) placeIndex = 0;
+    if(col === 2 && state.petPedestalsPurchased >= 2) placeIndex = 1;
+
+    if(placeIndex !== null){
+      const pPed = document.createElement('div');
+      pPed.className = 'pet-pedestal';
+      pbox.appendChild(pPed);
+
+      const placed = state.petStands[placeIndex];
+      if(placed){
+        const p = document.createElement('div');
+        p.className = 'pet-placed';
+        // If it's an egg, show egg image and name; if pet, show pet and badge
+        const nameLabel = escapeXml(displayName(placed.name || (placed.petType || 'Pet')));
+        p.innerHTML = `<img src='${placed.svg}' alt='${nameLabel}'/><div style="text-align:left"><strong>${nameLabel}</strong><br><span style="font-size:12px;color:#fff;opacity:.9">${placed.isEgg ? (placed.eggType || 'Egg') : (placed.petType || '')}</span></div>`;
+        pbox.appendChild(p);
+
+        // If egg incubating show timer badge
+        if(placed.isEgg && state.petTimers[placeIndex]){
+          const timer = document.createElement('div');
+          timer.className = 'pet-timer';
+          timer.dataset.index = placeIndex;
+          pbox.appendChild(timer);
+        }
+
+        // Add special glow for Flex T-Rex pet
+        if(!placed.isEgg && placed.petType === 'Flex T-Rex'){
+          p.classList.add('glow');
+        }
+      }
+
+      // Click handling for pet pedestal
+pbox.addEventListener('click', () => {
+  // If no selected item: remove placed item back to inventory
+  if (!state.selectedItemUid) {
+    const existing = state.petStands[placeIndex];
+    if (existing) {
+      state.inventory.push(existing);
+      state.petStands[placeIndex] = null;
+      delete state.petTimers[placeIndex];
+      recalcEPS();
+      renderInventory();
+      renderStands();
+      save();
+    }
+    return;
+  }
+
+  const newItem = state.inventory.find(it => it.uid === state.selectedItemUid);
+  if (!newItem) return;
+
+  // ✅ Allow eggs or pets here
+  if (!(newItem.isEgg || newItem.petType)) {
+    alert('Only eggs or pets can be placed on pet pedestals.');
+    return;
+  }
+
+  // If placing an egg, start hatch timer
+  if (newItem.isEgg) {
+    state.petStands[placeIndex] = newItem;
+    state.petTimers[placeIndex] = Date.now() + HATCH_DURATION;
+  } else {
+    // If placing a pet, no timer needed
+    state.petStands[placeIndex] = newItem;
+  }
+
+  // Remove from inventory
+  state.inventory = state.inventory.filter(it => it.uid !== newItem.uid);
+  state.selectedItemUid = null;
+
+  recalcEPS();
+  renderInventory();
+  renderStands();
+  save();
+});
+
+    }
+    petRow.appendChild(pbox);
+  }
+
+  // Insert or reinsert petRow after main stands
+  area.parentNode.insertBefore(petRow, area.nextSibling);
+
+  checkForge();
+  checkExoticForge();
+}
+
+function weightedPick(){
+  const r = Math.random();
+  if (r < 0.003) return 'unique';                       // 0.3%
+  if (r < 0.003 + 0.005) return 'legacy';               // 0.5%
+  if (r < 0.003 + 0.005 + 0.01) return 'legendary';     // 1% (cumulative)
+  if (r < 0.003 + 0.005 + 0.01 + 0.08) return 'epic';    // 8%
+  if (r < 0.003 + 0.005 + 0.01 + 0.08 + 0.10) return 'rare'; // 10%
+  return 'common';
+}
+  function priceFor(rarity){ const [a,b] = RARITY[rarity].price; return Math.floor(a + Math.random()*(b-a)); }
+  function makeShopItems(){
+    const items = [];
+    const pool = [...ITEM_NAMES];
+    for(let i=0;i<SHOP_SLOTS;i++){
+      const idx = Math.floor(Math.random()*pool.length);
+      const name = pool.splice(idx,1)[0];
+      const rarity = weightedPick();
+      const baseIdx = idx;
+      items.push({ uid: uid(), name, rarity, price: priceFor(rarity), svg: getItemSvg(name, baseIdx, rarity), baseIdx, purchased:false });
+    }
+    return items;
+  }
+  function ensureShop() {
+  const now = Date.now();
+  const REFRESH_INTERVAL = 90_000; // 1:30
+
+  // Fix old saves or weird drift
+  if (!state.shop.nextRefreshAt || state.shop.nextRefreshAt - now > REFRESH_INTERVAL) {
+    state.shop.nextRefreshAt = now + REFRESH_INTERVAL;
+  }
+
+  // Refresh if needed
+  if (now >= state.shop.nextRefreshAt || !state.shop.items?.length) {
+    state.shop.items = makeShopItems();
+    state.shop.nextRefreshAt = now + REFRESH_INTERVAL;
+    save();
+  }
+
+  renderShop();
+}
+  function msToClock(ms){ ms = Math.max(0, ms); const s = Math.floor(ms/1000); const m = Math.floor(s/60); const sec = s%60; return `${m}:${String(sec).padStart(2,'0')}`; }
+  let refreshTimer;
+  function renderShop(){
+    const grid = $('#shopGrid');
+    grid.innerHTML='';
+    state.shop.items.forEach((it, i)=>{
+      const card = document.createElement('div');
+      card.className='card';
+      card.innerHTML = `<div style='display:flex;gap:12px;align-items:center'>
+        <img src='${it.svg}' style='width:72px;height:72px;border-radius:10px;flex:0 0 72px' alt='${escapeXml(displayName(it.name))}' />
+        <div>
+          <h3>${escapeXml(displayName(it.name))}</h3>
+          <div class="tag t-${it.rarity}">${RARITY[it.rarity].label}</div>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div class="price">$${fmt(it.price)}</div>
+        <button class="buy">${it.purchased ? "Purchased!" : "Purchase"}</button>
+      </div>`;
+      const btn = card.querySelector('.buy');
+
+      function setBtn(){
+        if(it.purchased){
+          btn.disabled = true;
+          btn.textContent = 'Purchased!';
+          btn.style.background = 'linear-gradient(#2ecc71,#1da85b)';
+        } else {
+          btn.disabled = state.money < it.price;
+          btn.textContent = 'Purchase';
+          btn.style.background = '';
+        }
+      }
+      setBtn();
+
+      btn.addEventListener('click',()=>{
+        if(it.purchased) return;
+        if(state.money < it.price) return;
+        state.money -= it.price;
+        const inv = { uid: uid(), name: it.name, rarity: it.rarity, price: it.price, svg: it.svg, baseIdx: it.baseIdx };
+        state.inventory.push(inv);
+        it.purchased = true;
+        updateTop();
+        renderInventory();
+        save();
+        setBtn();
+      });
+      grid.appendChild(card);
+    });
+    if(refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(()=>{
+      const left = state.shop.nextRefreshAt - Date.now();
+      $('#refreshNote').textContent = `Shop refreshes every ${msToClock(left)}`;
+      if(left<=0){
+        ensureShop();
+      }
+    }, 200);
+  }
+
+  let audioCtx, masterGain, musicOn=false;
+  function initMusic(){ if(audioCtx) return; audioCtx = new (window.AudioContext || window.webkitAudioContext)(); masterGain = audioCtx.createGain(); masterGain.gain.value = 0.16; masterGain.connect(audioCtx.destination); const tempo = 90; const beat = 60/tempo; const pattern = [0,3,7,10,7,3]; const baseFreq = 220; function scheduleLoop(startTime){ for(let i=0;i<pattern.length;i++){ const t = startTime + i*beat*0.5; const freq = baseFreq * Math.pow(2, pattern[i]/12); const osc = audioCtx.createOscillator(); const g = audioCtx.createGain(); osc.type = 'square'; osc.frequency.value = freq; g.gain.value = 0; osc.connect(g); g.connect(masterGain); osc.start(t); g.gain.setValueAtTime(0.0, t); g.gain.linearRampToValueAtTime(0.08, t + 0.02); g.gain.linearRampToValueAtTime(0.0, t + beat*0.45); osc.stop(t + beat*0.5); } const pad = audioCtx.createOscillator(); const pg = audioCtx.createGain(); pad.type='sine'; pad.frequency.value = baseFreq*0.5; pg.gain.value=0.0; pad.connect(pg); pg.connect(masterGain); pad.start(startTime); pad.stop(startTime + pattern.length*beat*0.5); pg.gain.setValueAtTime(0.0, startTime); pg.gain.linearRampToValueAtTime(0.05, startTime + 0.1); pg.gain.linearRampToValueAtTime(0.0, startTime + pattern.length*beat*0.5); } function loop(){ const now = audioCtx.currentTime + 0.05; scheduleLoop(now); setTimeout(loop, (pattern.length*beat*0.5)*1000 - 40); } loop(); }
+  function toggleMusic(){ if(!audioCtx){ initMusic(); } if(audioCtx.state === 'suspended') audioCtx.resume(); musicOn = !musicOn; masterGain.gain.value = musicOn ? 0.16 : 0.0; $('#musicBtn').style.filter = musicOn ? 'saturate(1.2)' : 'grayscale(1)'; }
+  $('#musicBtn').addEventListener('click', ()=>{ toggleMusic(); });
+
+  function checkForge(){
+    const allLegendary = state.stands.every(uid=>{
+      if(!uid) return false;
+      const it = state.placed[uid] || state.inventory.find(x=>x.uid===uid);
+      return it && it.rarity === 'legendary';
+    });
+    const btn = $('#forgeBtn');
+    if(!btn) return;
+    btn.style.display = allLegendary ? 'inline-block' : 'none';
+  }
+  function createMythicItem(){
+    const idx = Math.floor(Math.random()*ITEM_NAMES.length);
+    const name = ITEM_NAMES[idx] || ('Mythic Item');
+    const baseIdx = idx;
+    return { uid: uid(), name, rarity: 'mythic', price: 0, svg: getItemSvg(name, baseIdx, 'mythic'), baseIdx };
+  }
+  $('#forgeBtn').addEventListener('click', ()=>{
+    if(!state.stands.every(uid => uid && (state.placed[uid]||state.inventory.find(x=>x.uid===uid)) && ((state.placed[uid]||state.inventory.find(x=>x.uid===uid)).rarity === 'legendary'))){
+      return;
+    }
+    state.stands.forEach(uid => {
+      if(uid && state.placed[uid]) delete state.placed[uid];
+    });
+    state.stands = Array(STAND_COUNT).fill(null);
+    const mythic = createMythicItem();
+    state.placed[mythic.uid] = mythic;
+    state.stands[0] = mythic.uid;
+    recalcEPS();
+    renderInventory();
+    renderStands();
+    save();
+  });
+    
+  
+
+  $('#openShop').addEventListener('click',()=>{
+    $('#shopOverlay').classList.add('show');
+    ensureShop();
+    $('#shopOverlay').setAttribute('aria-hidden','false');
+  });
+  $('#closeShop').addEventListener('click',()=>{
+    $('#shopOverlay').classList.remove('show');
+    $('#shopOverlay').setAttribute('aria-hidden','true');
+  });
+  $('#toolsBtn').addEventListener('click',()=>{
+    state.fastMode = !state.fastMode;
+    ensureShop();
+    const msg = state.fastMode? 'Fast refresh: 15s' : 'Normal refresh: 5 min';
+    $('#toolsBtn').title = 'Tools ('+msg+')';
+    save();
+  });
+
+/* -------------------
+   GEAR FEATURES
+------------------- */
+const MULTIPLIER_COST = 3_000_000;
+const MULTIPLIER_DURATION = 20 * 60 * 1000; // 20 minutes
+const MULTIPLIER_COOLDOWN = 30 * 60 * 1000; // 30 minutes
+const BACKGROUND_COST = 4_000_000;
+
+let multiplierActiveUntil = 0;
+let multiplierCooldownUntil = 0;
+let multiplierLevel = 1; // 1x, 2x, 4x max
+
+function applyMultiplier(eps) {
+  return eps * multiplierLevel;
+}
+
+let multiplierTimer;
+
+function updateMultiplierStatus() {
+  const status = document.getElementById("multiplierStatus");
+  const btn = document.getElementById("buyMultiplier");
+  if (!status || !btn) return;
+
+  if (multiplierTimer) clearInterval(multiplierTimer);
+
+  function refresh() {
+    const now = Date.now();
+
+    // 🟢 Case: 2x Active (allow upgrading to 4x)
+    if (multiplierLevel === 2 && now < multiplierActiveUntil) {
+      const left = Math.ceil((multiplierActiveUntil - now) / 1000);
+      const min = Math.floor(left / 60);
+      const sec = left % 60;
+      status.textContent = `Active: 2x (${min}:${String(sec).padStart(2,"0")} left)`;
+
+      btn.disabled = state.money < MULTIPLIER_COST;
+      btn.textContent = "Upgrade to 4x";
+      btn.style.background = "linear-gradient(#2ecc71,#1da85b)";
+
+    // 🟢 Case: 4x Active (fully maxed)
+    } else if (multiplierLevel === 4 && now < multiplierActiveUntil) {
+      const left = Math.ceil((multiplierActiveUntil - now) / 1000);
+      const min = Math.floor(left / 60);
+      const sec = left % 60;
+      status.textContent = `Active: 4x (${min}:${String(sec).padStart(2,"0")} left)`;
+
+      btn.disabled = true;
+      btn.textContent = "4x Active";
+      btn.style.background = "linear-gradient(#2ecc71,#1da85b)";
+
+    // Cooldown
+    } else if (now < multiplierCooldownUntil) {
+      const left = Math.ceil((multiplierCooldownUntil - now) / 1000);
+      const min = Math.floor(left / 60);
+      const sec = left % 60;
+      status.textContent = `Cooldown: ${min}:${String(sec).padStart(2,"0")}`;
+
+      btn.disabled = true;
+      btn.textContent = "Cooldown";
+      btn.style.background = "";
+
+    // Ready to buy again (no active, no cooldown)
+    } else {
+      status.textContent = "";
+      btn.disabled = state.money < MULTIPLIER_COST;
+      btn.textContent = "Purchase";
+      btn.style.background = "";
+    }
+  }
+
+  refresh();
+  multiplierTimer = setInterval(refresh, 1000);
+}
+
+
+
+function buyMultiplier() {
+  const now = Date.now();
+  if (state.money < MULTIPLIER_COST) return;
+
+  // If the previous effect & cooldown have fully ended, reset level
+  if (now > multiplierActiveUntil && now > multiplierCooldownUntil) {
+    multiplierLevel = 1;
+  }
+
+  // If already at 4x, stop
+  if (multiplierLevel >= 4) return;
+
+  // If no multiplier active yet
+  if (multiplierLevel < 2) {
+    // Block cooldown if one is still running
+    if (now < multiplierCooldownUntil) return;
+
+    multiplierLevel = 2;
+    multiplierActiveUntil = now + MULTIPLIER_DURATION;
+    multiplierCooldownUntil = now + MULTIPLIER_COOLDOWN;
+
+  // If already at 2x, upgrade to 4x without resetting timers
+  } else if (multiplierLevel === 2) {
+    multiplierLevel = 4;
+    // Do NOT change multiplierActiveUntil or multiplierCooldownUntil
+  }
+
+  state.money -= MULTIPLIER_COST;
+
+  // 🟢 Apply EPS boost immediately
+  recalcEPS();
+  updateTop();
+  updateMultiplierStatus();
+  save();
+}
+
+// Background feature
+let backgroundPurchased = false;
+let backgroundEnabled = false;
+
+function buyBackground() {
+  if (backgroundPurchased) return;
+  if (state.money < BACKGROUND_COST) return;
+  state.money -= BACKGROUND_COST;
+  backgroundPurchased = true;
+  backgroundEnabled = true;
+  document.body.classList.add("redblue");
+  updateTop();
+  document.getElementById("buyBackground").style.display = "none";
+  document.getElementById("toggleBackground").style.display = "inline-block";
+  save();
+}
+
+function toggleBackground() {
+  if (!backgroundPurchased) return;
+  backgroundEnabled = !backgroundEnabled;
+
+  if (backgroundEnabled) {
+    document.body.classList.add("redblue");
+    document.getElementById("toggleBackground").textContent = "Disable";
+  } else {
+    document.body.classList.remove("redblue");
+    document.getElementById("toggleBackground").textContent = "Enable";
+  }
+
+  save();
+}
+
+
+// Open/close Gear overlay
+document.getElementById("toolsBtn").addEventListener("click", () => {
+  document.getElementById("gearOverlay").classList.add("show");
+  document.getElementById("gearOverlay").setAttribute("aria-hidden", "false");
+  updateMultiplierStatus();
+});
+document.getElementById("closeGear").addEventListener("click", () => {
+  document.getElementById("gearOverlay").classList.remove("show");
+  document.getElementById("gearOverlay").setAttribute("aria-hidden", "true");
+});
+
+// Gear button actions
+document.getElementById("buyMultiplier").addEventListener("click", buyMultiplier);
+document.getElementById("buyBackground").addEventListener("click", buyBackground);
+document.getElementById("toggleBackground").addEventListener("click", toggleBackground);
+
+// Hook multiplier into EPS calculation
+// --- Multiplier-aware EPS calculation ---
+let baseEPS = 0;
+
+const _recalcEPS = recalcEPS;
+recalcEPS = function() {
+  // Recalculate base EPS without multiplier
+  let total = 0;
+  state.stands.forEach(uid => {
+    if (!uid) return;
+    const it = state.placed[uid] || state.inventory.find(x => x.uid === uid);
+    if (!it) return;
+    total += RARITY[it.rarity].income;
+  });
+  baseEPS = total;
+
+  // Sum pet EPS
+  let petTotal = 0;
+  state.petStands.forEach(ps => {
+    if(!ps) return;
+    if(ps.petEps) petTotal += ps.petEps;
+  });
+
+  let combined = baseEPS + petTotal;
+  combined = combined * multiplierLevel * (state.permanentPetMultiplier || 1);
+  state.eps = Math.floor(combined);
+
+  updateTop();
+  save();
+};
+
+
+
+/* -----------------------
+   PET SHOP LOGIC
+   ----------------------- */
+
+const PET_PEDESTAL_COST = 15_000_000;
+const EGG_COSTS = { legendary: 10_000_000, mythical: 15_000_000, enchanted: 25_000_000 };
+const HATCH_DURATION = 10 * 60 * 1000; // 10 minutes (ms)
+
+// pet outcome tables & EPS values
+const PET_TABLES = {
+  legendary: [
+    { name: 'Dog',    chance: 0.70, eps: 5000 },
+    { name: 'Cat',    chance: 0.20, eps: 5000 },
+    { name: 'Gold Dog', chance: 0.10, eps: 10000 }
+  ],
+  mythical: [
+    { name: 'Lion', chance: 0.80, eps: 2000 },
+    { name: 'Bear', chance: 0.15, eps: 6000 },
+    { name: 'Dino', chance: 0.05, eps: 15000 }
+  ],
+  enchanted: [
+    { name: 'Owl', chance: 0.94, eps: 8000 },
+    { name: 'Rainbow Panda', chance: 0.05, eps: 35000 },
+    { name: 'Flex T-Rex', chance: 0.01, eps: 60000 } // special: grants permanent 5x
+  ]
+};
+
+function weightedPetPick(eggType){
+  const list = PET_TABLES[eggType];
+  const r = Math.random();
+  let acc = 0;
+  for(const p of list){
+    acc += p.chance;
+    if(r <= acc) return p;
+  }
+  return list[list.length-1];
+}
+
+function updatePetButtonsUI(){
+  const btn = document.getElementById('buyPetPedestal');
+  const status = document.getElementById('petPedestalStatus');
+  if(!btn || !status) return;
+  btn.disabled = state.petPedestalsPurchased >= 2 || state.money < PET_PEDESTAL_COST;
+  if(state.petPedestalsPurchased >= 2){
+    status.textContent = 'Max pedestals purchased';
+    btn.textContent = 'Purchased';
+    btn.style.background = 'linear-gradient(#2ecc71,#1da85b)';
+  } else {
+    status.textContent = `Purchased: ${state.petPedestalsPurchased}/2`;
+    btn.textContent = 'Purchase';
+    btn.style.background = '';
+  }
+
+  // egg buttons enable based on money
+  document.getElementById('buyLegendEgg').disabled = state.money < EGG_COSTS.legendary;
+  document.getElementById('buyMythEgg').disabled = state.money < EGG_COSTS.mythical;
+  document.getElementById('buyEnchantedEgg').disabled = state.money < EGG_COSTS.enchanted;
+}
+
+// buy pedestal
+function buyPetPedestal(){
+  if(state.petPedestalsPurchased >= 2) return;
+  if(state.money < PET_PEDESTAL_COST) return;
+  state.money -= PET_PEDESTAL_COST;
+  state.petPedestalsPurchased++;
+  updateTop();
+  updatePetButtonsUI();
+  renderStands();
+  save();
+}
+
+// buy egg functions: create egg inventory item
+function buyEgg(type){
+  const cost = EGG_COSTS[type];
+  if(state.money < cost) return;
+  state.money -= cost;
+  const inv = {
+    uid: uid(),
+    name: (type.charAt(0).toUpperCase() + type.slice(1)) + ' Egg',
+    isEgg: true,
+    eggType: type,
+    svg: getEggSvg(type, Math.floor(Math.random()*99999)),
+    baseIdx: 0
+  };
+  state.inventory.push(inv);
+  updateTop();
+  renderInventory();
+  save();
+}
+
+// Check pet timers and hatch if needed
+function checkPetHatches(){
+  const now = Date.now();
+  let changed=false;
+  for(const idxStr in state.petTimers){
+    const idx = Number(idxStr);
+    const t = state.petTimers[idx];
+    if(!t) continue;
+    // update timer UI elements (if any)
+    const timerEl = document.querySelector(`.pet-timer[data-index='${idx}']`);
+    if(timerEl){
+      const left = Math.max(0, t - now);
+      const s = Math.floor(left/1000);
+      const m = Math.floor(s/60);
+      const sec = s%60;
+      timerEl.textContent = `${m}:${String(sec).padStart(2,'0')}`;
+    }
+    if(now >= t){
+      // hatch
+      const placed = state.petStands[idx];
+      if(placed && placed.isEgg){
+        // determine result
+        const result = weightedPetPick(placed.eggType || 'legendary');
+        const petObj = {
+          uid: uid(),
+          name: result.name,
+          isEgg: false,
+          eggType: null,
+          petType: result.name,
+          petEps: result.eps,
+          svg: getPetSvg(result.name, Math.floor(Math.random()*99999))
+        };
+        // apply Flex T-Rex permanent multiplier if hatched
+        if(result.name === 'Flex T-Rex'){
+          state.permanentPetMultiplier = 5;
+        }
+        state.petStands[idx] = petObj;
+        delete state.petTimers[idx];
+        changed=true;
+      } else {
+        delete state.petTimers[idx];
+      }
+    }
+  }
+  if(changed){
+    recalcEPS();
+    renderInventory();
+    renderStands();
+    save();
+  }
+}
+
+// Hook up pet UI open/close
+$('#openPetShop').addEventListener('click', ()=>{
+  $('#petOverlay').classList.add('show');
+  $('#petOverlay').setAttribute('aria-hidden','false');
+  updatePetButtonsUI();
+});
+$('#closePetShop').addEventListener('click', ()=>{
+  $('#petOverlay').classList.remove('show');
+  $('#petOverlay').setAttribute('aria-hidden','true');
+});
+
+document.getElementById('buyPetPedestal').addEventListener('click', buyPetPedestal);
+document.getElementById('buyLegendEgg').addEventListener('click', ()=>buyEgg('legendary'));
+document.getElementById('buyMythEgg').addEventListener('click', ()=>buyEgg('mythical'));
+document.getElementById('buyEnchantedEgg').addEventListener('click', ()=>buyEgg('enchanted'));
+
+/* -----------------------
+   BOOT
+----------------------- */
+
+async function boot(){
+  await load();
+  if(!state.money) state.money = MONEY_START;
+  if(!state.stands || state.stands.length!==STAND_COUNT){
+    state.stands = Array(STAND_COUNT).fill(null);
+  }
+  if(!state.placed) state.placed = {};
+  updateTop();
+  renderInventory();
+  renderStands();
+  recalcEPS();
+  ensureShop();
+  updateMultiplierStatus();
+
+  requestAnimationFrame(tick);
+}
+boot();
+
+document.getElementById("resetUserBtn").addEventListener("click", function() {
+  if (confirm("Are you sure you want to reset your username? This will delete your save from this browser and you will have to enter a new name.")) {
+    localStorage.removeItem("flex-userid");
+    localStorage.removeItem("flex-save-v1");
+    location.reload();
+  }
+});
+
+  
+window.addEventListener("beforeunload", save);
+  window.addEventListener("beforeunload", save);
+</script>
+</body>
+</html>
